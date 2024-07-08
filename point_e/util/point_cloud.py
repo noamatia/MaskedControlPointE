@@ -2,6 +2,7 @@ import random
 from dataclasses import dataclass
 from typing import BinaryIO, Dict, List, Optional, Union
 
+import torch
 import numpy as np
 
 from .ply_util import write_ply
@@ -27,6 +28,7 @@ class PointCloud:
 
     coords: np.ndarray
     channels: Dict[str, np.ndarray]
+    mask: Optional[np.ndarray] = None
 
     @classmethod
     def load(cls, f: Union[str, BinaryIO]) -> "PointCloud":
@@ -43,6 +45,22 @@ class PointCloud:
                 coords=obj["coords"],
                 channels={k: obj[k] for k in keys if k != "coords"},
             )
+        
+    @classmethod
+    def load_masked(cls, path: str, labels_path: str, masked_labels: list) -> "PointCloud":
+        """
+        Load the partnet point cloud from a .txt file. 
+        """
+        coords = np.loadtxt(path, dtype=np.float32)
+        labels = np.loadtxt(labels_path, dtype=int)
+        coords[:, [0, 1, 2]] = coords[:, [2, 0, 1]]
+        channels = {k: np.zeros_like(coords[:, 0], dtype=np.float32) for k in "RGB"}
+        mask = np.isin(labels, masked_labels)
+        return PointCloud(
+            coords=coords,
+            channels=channels,
+            mask=1 - mask.astype(int)
+        )
 
     def save(self, f: Union[str, BinaryIO]):
         """
@@ -122,6 +140,7 @@ class PointCloud:
             return PointCloud(
                 coords=self.coords[indices],
                 channels={k: v[indices] for k, v in self.channels.items()},
+                mask=self.mask[indices] if self.mask is not None else None,
             )
 
         new_coords = self.coords[indices]
@@ -172,3 +191,20 @@ class PointCloud:
                 k: np.concatenate([v, other.channels[k]], axis=0) for k, v in self.channels.items()
             },
         )
+
+    def encode(self) -> torch.Tensor:
+        """
+        Encode the point cloud to a Kx6 tensor where K is the number of points.
+        """
+        coords = torch.tensor(self.coords.T, dtype=torch.float32)
+        rgb = [(self.channels[x] * 255).astype(np.uint8) for x in "RGB"]
+        rgb = [torch.tensor(x, dtype=torch.float32) for x in rgb]
+        rgb = torch.stack(rgb, dim=0)
+        return torch.cat([coords, rgb], dim=0)
+    
+    def encode_mask(self) -> torch.Tensor:
+        """
+        Encode the mask to a Kx6 tensor where K is the number of points.
+        """
+        return torch.tensor(np.tile(self.mask, (6, 1)), dtype=torch.float32)
+    

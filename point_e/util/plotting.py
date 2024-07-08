@@ -14,6 +14,7 @@ def plot_point_cloud(
         (-0.75, -0.75, -0.75),
         (0.75, 0.75, 0.75),
     ),
+    theta: float = None,
 ):
     """
     Render a point cloud as a plot to the given image path.
@@ -37,6 +38,7 @@ def plot_point_cloud(
 
             if grid_size > 1:
                 theta = np.pi * 2 * (i * grid_size + j) / (grid_size**2)
+            if theta is not None:
                 rotation = np.array(
                     [
                         [np.cos(theta), -np.sin(theta), 0.0],
