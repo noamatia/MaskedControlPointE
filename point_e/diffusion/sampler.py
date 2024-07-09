@@ -94,8 +94,12 @@ class PointCloudSampler:
         return samples
 
     def sample_batch_progressive(
-        self, batch_size: int, model_kwargs: Dict[str, Any]
+        self, batch_size: int, model_kwargs: Dict[str, Any], guidances: List[torch.Tensor] = None
     ) -> Iterator[torch.Tensor]:
+        n = len(self.models)
+        if guidances is None:
+            guidances = [None] * n
+        assert len(guidances) == n
         samples = None
         for (
             model,
@@ -108,6 +112,7 @@ class PointCloudSampler:
             stage_sigma_max,
             stage_s_churn,
             stage_key_filter,
+            guidance,
         ) in zip(
             self.models,
             self.diffusions,
@@ -119,6 +124,7 @@ class PointCloudSampler:
             self.sigma_max,
             self.s_churn,
             self.model_kwargs_key_filter,
+            guidances,
         ):
             stage_model_kwargs = model_kwargs.copy()
             if stage_key_filter != "*":
@@ -128,11 +134,17 @@ class PointCloudSampler:
                 stage_model_kwargs["low_res"] = samples
             if hasattr(model, "cached_model_kwargs"):
                 stage_model_kwargs = model.cached_model_kwargs(batch_size, stage_model_kwargs)
+            if guidance is not None:
+                assert model.guided
+                stage_model_kwargs["guidance"] = guidance
             sample_shape = (batch_size, 3 + len(self.aux_channels), stage_num_points)
 
             if stage_guidance_scale != 1 and stage_guidance_scale != 0:
                 for k, v in stage_model_kwargs.copy().items():
-                    stage_model_kwargs[k] = torch.cat([v, torch.zeros_like(v)], dim=0)
+                    if k == "guidance":
+                        stage_model_kwargs[k] = torch.cat([v, v], dim=0)
+                    else:
+                        stage_model_kwargs[k] = torch.cat([v, torch.zeros_like(v)], dim=0)
 
             if stage_use_karras:
                 samples_it = karras_sample_progressive(
