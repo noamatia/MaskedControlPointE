@@ -47,19 +47,22 @@ class PointCloud:
             )
         
     @classmethod
-    def load_masked(cls, path: str, labels_path: str, masked_labels: list) -> "PointCloud":
+    def load_masked(cls, path: str, labels_path: str, masked_labels: list=None) -> "PointCloud":
         """
         Load the partnet point cloud from a .txt file. 
         """
         coords = np.loadtxt(path, dtype=np.float32)
-        labels = np.loadtxt(labels_path, dtype=int)
         coords[:, [0, 1, 2]] = coords[:, [2, 0, 1]]
         channels = {k: np.zeros_like(coords[:, 0], dtype=np.float32) for k in "RGB"}
-        mask = np.isin(labels, masked_labels)
+        mask = None
+        if masked_labels is not None:
+            labels = np.loadtxt(labels_path, dtype=int)
+            mask = np.isin(labels, masked_labels)
+            mask = 1 - mask.astype(int)
         return PointCloud(
             coords=coords,
             channels=channels,
-            mask=1 - mask.astype(int)
+            mask=mask
         )
 
     def save(self, f: Union[str, BinaryIO]):
