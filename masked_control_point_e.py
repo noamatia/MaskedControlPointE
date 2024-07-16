@@ -34,6 +34,7 @@ class MaskedControlPointE(pl.LightningModule):
 
     lr: float
     beta: float
+    masked: bool
     timesteps: int
     batch_size: int
     dev: torch.device
@@ -45,6 +46,7 @@ class MaskedControlPointE(pl.LightningModule):
         self,
         lr: float,
         beta: float,
+        masked: bool,
         timesteps: int,
         num_points: int,
         batch_size: int,
@@ -52,10 +54,14 @@ class MaskedControlPointE(pl.LightningModule):
         cond_drop_prob: float,
         validation_data_loader: DataLoader,
     ):
+        assert (beta is None and not masked) or (
+            beta is not None and masked and 0 <= beta <= 1
+        ), f"{beta=}, {masked=}"
         super().__init__()
         self.lr = lr
         self.dev = dev
         self.beta = beta
+        self.masked = masked
         self.timesteps = timesteps
         self.batch_size = batch_size
         self._init_model(cond_drop_prob, num_points)
@@ -97,7 +103,7 @@ class MaskedControlPointE(pl.LightningModule):
             ):
                 names = [SOURCE, TARGET]
                 latents = [source_latent, target_latent]
-                if self.beta is not None:
+                if self.masked:
                     names += [MASKED_SOURCE, MASKED_TARGET]
                     latents += [
                         source_latent * source_mask,
@@ -109,7 +115,7 @@ class MaskedControlPointE(pl.LightningModule):
 
     def _plot(self, samples, prompt):
         pc = self.sampler.output_to_point_clouds(samples)[0]
-        fig = plot_point_cloud(pc, theta=np.pi * 1 / 2)
+        fig = plot_point_cloud(pc, theta=np.pi * 3 / 2)
         img = wandb.Image(fig, caption=prompt)
         plt.close()
         return img
@@ -140,7 +146,7 @@ class MaskedControlPointE(pl.LightningModule):
         )
         base_loss = terms["loss"].mean()
         log_data = {"base_loss": base_loss.item()}
-        if self.beta is None:
+        if not self.masked:
             wandb.log(log_data)
             return base_loss
         reg_loss = mean_flat(

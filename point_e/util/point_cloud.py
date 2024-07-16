@@ -47,7 +47,21 @@ class PointCloud:
             )
         
     @classmethod
-    def load_masked(cls, path: str, labels_path: str, masked_labels: list=None) -> "PointCloud":
+    def load_shapenet(cls, path: str) -> "PointCloud":
+        """
+        Load the shapebet point cloud from a .npz file.
+        """
+        with open(path, "rb") as fn:
+            coords = np.load(fn)["pointcloud"].astype(np.float32)
+        coords[:, [0, 1, 2]] = coords[:, [2, 0, 1]]
+        channels = {k: np.zeros_like(coords[:, 0], dtype=np.float32) for k in ["R", "G", "B"]}
+        return PointCloud(
+            coords=coords,
+            channels=channels,
+        )
+        
+    @classmethod
+    def load_partnet(cls, path: str, labels_path: str, masked_labels: list=None) -> "PointCloud":
         """
         Load the partnet point cloud from a .txt file. 
         """

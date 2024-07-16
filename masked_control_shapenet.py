@@ -32,11 +32,16 @@ def load_partnet_metadata(uid, part, masked):
 
 def load_masked_pc(partnet_uid, num_points, masked_labels):
     src_dir = os.path.join(PARTNET_DIR, partnet_uid)
-    pc = PointCloud.load_masked(
+    pc = PointCloud.load_partnet(
         os.path.join(src_dir, "point_sample", "pts-10000.txt"),
         labels_path=os.path.join(src_dir, "point_sample", "label-10000.txt"),
         masked_labels=masked_labels,
     )
+    return pc.random_sample(num_points)
+
+
+def load_pc(num_points, uid):
+    pc = PointCloud.load_shapenet(os.path.join(PCS_DIR, uid + ".npz"))
     return pc.random_sample(num_points)
 
 
@@ -69,33 +74,35 @@ class MaskedControlShapeNet(Dataset):
             row[SOURCE_UID],
             row[TARGET_UID],
         )
-        source_masked_labels, source_partnet_uid = load_partnet_metadata(
-            source_uid, part, masked
-        )
-        target_masked_labels, target_partnet_uid = load_partnet_metadata(
-            target_uid, part, masked
-        )
         self.prompts.append(prompt)
         self.source_uids.append(source_uid)
         self.target_uids.append(target_uid)
-        source_pc = load_masked_pc(
-            source_partnet_uid,
-            num_points,
-            source_masked_labels,
-        )
-        target_pc = load_masked_pc(
-            target_partnet_uid,
-            num_points,
-            target_masked_labels,
-        )
-        self.source_latents.append(source_pc.encode().to(device))
-        self.target_latents.append(target_pc.encode().to(device))
         if masked:
+            source_masked_labels, source_partnet_uid = load_partnet_metadata(
+                source_uid, part, masked
+            )
+            target_masked_labels, target_partnet_uid = load_partnet_metadata(
+                target_uid, part, masked
+            )
+            source_pc = load_masked_pc(
+                source_partnet_uid,
+                num_points,
+                source_masked_labels,
+            )
+            target_pc = load_masked_pc(
+                target_partnet_uid,
+                num_points,
+                target_masked_labels,
+            )
             self.source_masks.append(source_pc.encode_mask().to(device))
             self.target_masks.append(target_pc.encode_mask().to(device))
         else:
+            source_pc = load_pc(num_points, source_uid)
+            target_pc = load_pc(num_points, target_uid)
             self.source_masks.append(0)
             self.target_masks.append(0)
+        self.source_latents.append(source_pc.encode().to(device))
+        self.target_latents.append(target_pc.encode().to(device))
 
     def _set_length(self, batch_size):
         self.length = len(self.prompts)

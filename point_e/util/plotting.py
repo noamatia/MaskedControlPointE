@@ -11,8 +11,8 @@ def plot_point_cloud(
     color: bool = True,
     grid_size: int = 1,
     fixed_bounds: Optional[Tuple[Tuple[float, float, float], Tuple[float, float, float]]] = (
-        (-0.75, -0.75, -0.75),
-        (0.75, 0.75, 0.75),
+        (-0.5, -0.5, -0.5),
+        (0.5, 0.5, 0.5),
     ),
     theta: float = None,
 ):

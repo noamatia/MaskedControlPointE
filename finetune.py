@@ -28,17 +28,17 @@ def parse_args():
     parser.add_argument("--data_csv_val", type=str)
     parser.add_argument("--epochs", type=int, default=10000)
     parser.add_argument("--batch_size", type=int, default=6)
+    parser.add_argument("--lr", type=float, default=7e-5*0.4)
     parser.add_argument("--subset_size", type=int, default=1)
-    parser.add_argument("--lr", type=float, default=7e-5*0.22)
     parser.add_argument("--timesteps", type=int, default=1024)
     parser.add_argument("--num_points", type=int, default=1024)
-    parser.add_argument("--validation_freq", type=int, default=5)
     parser.add_argument("--grad_acc_steps", type=int, default=11)
+    parser.add_argument("--validation_freq", type=int, default=100)
     parser.add_argument("--cond_drop_prob", type=float, default=0.5)
     parser.add_argument("--prompt_key", type=str, default="utterance")
     parser.add_argument("--num_validation_samples", type=int, default=1)
-    parser.add_argument("--data_csv_train", type=str, default="chair/train.csv")
     parser.add_argument("--wandb_project", type=str, default="masked_control_point_e")
+    parser.add_argument("--data_csv_train", type=str, default="chair_armrests/train.csv")
     args = parser.parse_args()
     return args
 
@@ -68,17 +68,18 @@ def load_df(data_csv, subset_size):
 
 
 def main(args):
+    masked = args.beta is not None
     name = build_name(args)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     train_df = load_df(args.data_csv_train, args.subset_size)
     train_dataset = MaskedControlShapeNet(
         df=train_df,
+        masked=masked,
         device=device,
         part=args.part,
         num_points=args.num_points,
         batch_size=args.batch_size,
         prompt_key=args.prompt_key,
-        masked=args.beta is not None,
     )
     train_data_loader = DataLoader(
         dataset=train_dataset, batch_size=args.batch_size, shuffle=True
@@ -87,14 +88,14 @@ def main(args):
         load_df(args.data_csv_val, args.num_validation_samples)
         if args.data_csv_val
         else train_df
-    )
+    ).head(args.num_validation_samples)
     validation_dataset = MaskedControlShapeNet(
+        masked=masked,
         device=device,
         part=args.part,
         df=validation_df,
         num_points=args.num_points,
         prompt_key=args.prompt_key,
-        masked=args.beta is not None,
         batch_size=args.num_validation_samples,
     )
     validation_data_loader = DataLoader(
@@ -104,6 +105,7 @@ def main(args):
     model = MaskedControlPointE(
         lr=args.lr,
         dev=device,
+        masked=masked,
         beta=args.beta,
         timesteps=args.timesteps,
         num_points=args.num_points,
