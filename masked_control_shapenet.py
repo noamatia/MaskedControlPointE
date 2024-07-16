@@ -33,8 +33,8 @@ def load_partnet_metadata(uid, part, masked):
 def load_masked_pc(partnet_uid, num_points, masked_labels):
     src_dir = os.path.join(PARTNET_DIR, partnet_uid)
     pc = PointCloud.load_partnet(
-        os.path.join(src_dir, "point_sample", "pts-10000.txt"),
-        labels_path=os.path.join(src_dir, "point_sample", "label-10000.txt"),
+        os.path.join(src_dir, "point_sample", "sample-points-all-pts-nor-rgba-10000.txt"),
+        os.path.join(src_dir, "point_sample", "sample-points-all-label-10000.txt"),
         masked_labels=masked_labels,
     )
     return pc.random_sample(num_points)

@@ -64,6 +64,7 @@ class MaskedControlPointE(pl.LightningModule):
         self.masked = masked
         self.timesteps = timesteps
         self.batch_size = batch_size
+        self.theta = np.pi * 1 / 2 if masked else np.pi * 3 / 2
         self._init_model(cond_drop_prob, num_points)
         self._init_validation_data(validation_data_loader)
 
@@ -115,7 +116,7 @@ class MaskedControlPointE(pl.LightningModule):
 
     def _plot(self, samples, prompt):
         pc = self.sampler.output_to_point_clouds(samples)[0]
-        fig = plot_point_cloud(pc, theta=np.pi * 3 / 2)
+        fig = plot_point_cloud(pc, theta=self.theta)
         img = wandb.Image(fig, caption=prompt)
         plt.close()
         return img

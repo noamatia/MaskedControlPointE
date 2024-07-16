@@ -15,6 +15,24 @@ def preprocess(data, channel):
         return np.round(data * 255.0)
     return data
 
+# source: https://github.com/daerduoCarey/partnet_dataset/blob/master/scripts/gen_h5_ins_seg_after_merging.py
+def normalize_coords(coords):
+    x_max = np.max(coords[:, 0])
+    x_min = np.min(coords[:, 0])
+    x_mean = (x_max + x_min) / 2
+    y_max = np.max(coords[:, 1])
+    y_min = np.min(coords[:, 1])
+    y_mean = (y_max + y_min) / 2
+    z_max = np.max(coords[:, 2])
+    z_min = np.min(coords[:, 2])
+    z_mean = (z_max + z_min) / 2
+    coords[:, 0] -= x_mean
+    coords[:, 1] -= y_mean
+    coords[:, 2] -= z_mean
+    scale = np.sqrt(np.max(np.sum(coords**2, axis=1)))
+    coords /= scale
+    return coords
+
 
 @dataclass
 class PointCloud:
@@ -65,12 +83,16 @@ class PointCloud:
         """
         Load the partnet point cloud from a .txt file. 
         """
-        coords = np.loadtxt(path, dtype=np.float32)
+        with open(path, "r") as fin:
+            lines = [line.rstrip().split() for line in fin.readlines()]
+        coords = np.array([[float(line[0]), float(line[1]), float(line[2])] for line in lines], dtype=np.float32)
+        coords = normalize_coords(coords)
         coords[:, [0, 1, 2]] = coords[:, [2, 0, 1]]
         channels = {k: np.zeros_like(coords[:, 0], dtype=np.float32) for k in "RGB"}
         mask = None
         if masked_labels is not None:
-            labels = np.loadtxt(labels_path, dtype=int)
+            with open(labels_path, "r") as fin:
+                labels = np.array([int(item.rstrip()) for item in fin.readlines()], dtype=np.int32)
             mask = np.isin(labels, masked_labels)
             mask = 1 - mask.astype(int)
         return PointCloud(
